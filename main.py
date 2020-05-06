@@ -1,17 +1,37 @@
 import json
-import requests
+import time
+from websocket import create_connection
 
-character_name = "Diabeast"
-base_url = "http://census.daybreakgames.com/get/ps2:v2/character/?name.first_lower={}".format(character_name.lower())
+# TODO: create various subsciptions for events like Sean dying in game and shaming him when he spends certs
+payload = """
+{
+	"service":"event",
+	"action":"subscribe",
+	"worlds":["all"],
+	"eventNames":["MetagameEvent"]
+}
+"""
 
-character_response = requests.get(base_url)
-character_id = json.loads(character_response.text)["character_list"][0]["character_id"]
+# TODO: dump these in a function to recreate the connection when it eventually craps out
+ws = create_connection(
+    "wss://push.planetside2.com/streaming?environment=ps2&service-id=s:example"
+)
+ws.send(payload)
 
-friends = requests.get("http://census.daybreakgames.com/get/ps2:v2/characters_friend/?character_id={}".format(character_id))
-list = json.loads(friends.text)["characters_friend_list"][0]["friend_list"]
-
-for c in list:
-    friend = json.loads(requests.get("http://census.daybreakgames.com/get/ps2:v2/character/?character_id={}".format(c["character_id"])).text)
-    print(friend["character_list"][0]["name"]["first"], friend["character_list"][0]["certs"]["available_points"])
-
-print(json.loads(requests.get("http://census.daybreakgames.com/get/ps2:v2/map/?world_id=1&zone_ids=2").text))
+# Run until it can't run no more
+while (True):
+    try:
+        result = ws.recv()
+        js = json.loads(result)
+        try:
+            # 99% of events are heartbeats regardless of the payload, and that ain't certs
+            if (js["type"] != "heartbeat"):
+                # TODO: hook into Justin's discord bot
+                print(js)
+        except:
+            pass
+    except:
+        # whenever the connection craps out I just wanna know how long the process lasted and break outta the loop so it doesn't run forever, for now at least
+        print(time.localtime())
+        break
+    time.sleep(10)
