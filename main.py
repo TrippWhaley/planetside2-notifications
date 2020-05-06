@@ -1,5 +1,6 @@
 import json
 import time
+import datetime
 from websocket import create_connection
 
 # TODO: create various subsciptions for events like Sean dying in game and shaming him when he spends certs
@@ -27,11 +28,11 @@ while (True):
             # 99% of events are heartbeats regardless of the payload, and that ain't certs
             if (js["type"] != "heartbeat"):
                 # TODO: hook into Justin's discord bot
-                print(js)
+                print("{0}: {1}".format(js, datetime.datetime.now().time()))
         except:
             pass
     except:
         # whenever the connection craps out I just wanna know how long the process lasted and break outta the loop so it doesn't run forever, for now at least
-        print(time.localtime())
+        print("Failed to read at: {}".format(datetime.datetime.now().time()))
         break
     time.sleep(10)
