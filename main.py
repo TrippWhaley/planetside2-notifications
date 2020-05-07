@@ -3,6 +3,7 @@ from time import sleep
 from datetime import datetime
 from websocket import create_connection
 
+# Testing the webhook with this commit
 # TODO: create various subsciptions for events like Sean dying in game and shaming him when he spends certs
 payload = """
 {
