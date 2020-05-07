@@ -1,6 +1,6 @@
 import json
-import time
-import datetime
+from time import sleep
+from datetime import datetime
 from websocket import create_connection
 
 # TODO: create various subsciptions for events like Sean dying in game and shaming him when he spends certs
@@ -8,7 +8,7 @@ payload = """
 {
 	"service":"event",
 	"action":"subscribe",
-	"worlds":["all"],
+	"worlds":["17"],
 	"eventNames":["MetagameEvent"]
 }
 """
@@ -23,16 +23,26 @@ ws.send(payload)
 while (True):
     try:
         result = ws.recv()
-        js = json.loads(result)
-        try:
-            # 99% of events are heartbeats regardless of the payload, and that ain't certs
-            if (js["type"] != "heartbeat"):
-                # TODO: hook into Justin's discord bot
-                print("{0}: {1}".format(js, datetime.datetime.now().time()))
-        except:
-            pass
+        dict = json.loads(result)
     except:
-        # whenever the connection craps out I just wanna know how long the process lasted and break outta the loop so it doesn't run forever, for now at least
-        print("Failed to read at: {}".format(datetime.datetime.now().time()))
+        # change this to reconnect with exponential backoff retry logic later
+        ws.close()
         break
-    time.sleep(10)
+    # 99% of events are heartbeats regardless of the payload, and that ain't certs
+    if (dict.get("payload") is not None):
+        ws_payload = dict.get("payload")
+        if (ws_payload.get("event_name") is not None
+                and payload.get("metagame_event_id") == 210):
+            # TODO: hook into Justin's discord bot
+            tr = faction.get("faction_tr")
+            nc = faction.get("faction_nc")
+            vs = faction.get("faction_vs")
+            alert = """
+						ALERT STATUS:
+						Terran Republic: {}
+						New Conglomerate: {}
+						Vanu Scum: {}
+						{}
+					"""
+            print(alert.format(tr, nc, vs, datetime.now().time()))
+    sleep(10)
