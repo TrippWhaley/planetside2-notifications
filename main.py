@@ -1,15 +1,17 @@
 import asyncio
+import websockets
 import json
 import requests
 from time import sleep
 from datetime import datetime
-from websocket import create_connection
 from model.MetagameEvent import MetagameEvent
 from model.EventServerEndpointStatus import EventServerEndpointStatus
 
 # TODO: create various subsciptions for events like Sean dying in game and shaming him when he spends certs
 world_name = "Emerald"
 event_name = "MetagameEvent"
+ps2_env = "ps2"
+service_id = "example"
 payload_tpl = """
 {{
 	"service":"event",
@@ -18,6 +20,7 @@ payload_tpl = """
 	"eventNames":["{}"]
 }}
 """
+ws_url_tpl = "wss://push.planetside2.com/streaming?environment={}&service-id=s:{}"
 
 # Init static data models
 zone_list = json.loads(requests.get("http://census.daybreakgames.com/json/get/ps2:v2/zone/?c:limit=100").text).get("zone_list")
@@ -35,41 +38,35 @@ metagame_event_dict = {}
 for metagame_event in metagame_event_list:
 	metagame_event_dict[metagame_event.get("metagame_event_id")] = metagame_event.get("name").get("en")
 
+# Format connection specific stuffs
 payload = payload_tpl.format(world_dict.get(world_name), event_name)
+ws_url = ws_url_tpl.format(ps2_env, service_id)
 
-# TODO: dump these in a function to recreate the connection when it eventually craps out
-ws = create_connection(
-    "wss://push.planetside2.com/streaming?environment=ps2&service-id=s:example"
-)
-ws.send(payload)
-
-
-# Run until it can't run no more
-def main():
+# Create discord notification if message type is valid
+def process_message(message):
+	dict = json.loads(message)
+	if (dict.get("payload") is not None):
+		model = MetagameEvent
+		dict = dict.get("payload")
+		dict["metagame_event_dict"] = metagame_event_dict
+	elif (dict.get("detail") is not None):
+		model = EventServerEndpointStatus
+	else:
+		return
 	try:
-		while (True):
-			result = ws.recv()
-			dict = json.loads(result)
-			# 99% of events are heartbeats regardless of the payload, and that ain't certs
-			if (dict.get("payload") is not None):
-				model = MetagameEvent
-				dict = dict.get("payload")
-				dict["metagame_event_dict"] = metagame_event_dict
-			elif (dict.get("detail") is not None):
-				model = EventServerEndpointStatus
-			else:
-				continue
-			# Send alert if data model is in accepted set
-			try:
-				alert = model(**dict)
-				print(alert.toString())
-			except Exception as e:
-				print(e)
-			sleep(5)
+		alert = model(**dict)
+		# TODO: use discord bot
+		print(alert.toString())
 	except Exception as e:
-		# change this to reconnect with exponential backoff retry logic later
 		print(e)
-		ws.close()
+
+async def consume(ws_url, payload):
+	async with websockets.connect(ws_url) as ws:
+		await ws.send(payload)
+		async for message in ws:
+			process_message(message)
 
 if __name__ == '__main__':
-	main()
+	loop = asyncio.get_event_loop()
+	loop.run_until_complete(consume(ws_url, payload))
+	loop.run_forever()
