@@ -5,6 +5,7 @@ from time import sleep
 from datetime import datetime
 from websocket import create_connection
 from model.MetagameEvent import MetagameEvent
+from model.EventServerEndpointStatus import EventServerEndpointStatus
 
 # TODO: create various subsciptions for events like Sean dying in game and shaming him when he spends certs
 world_name = "Emerald"
@@ -34,13 +35,13 @@ metagame_event_dict = {}
 for metagame_event in metagame_event_list:
 	metagame_event_dict[metagame_event.get("metagame_event_id")] = metagame_event.get("name").get("en")
 
-payload = payload_tpl.format(world_dict.get("Emerald"), event_name)
+payload = payload_tpl.format(world_dict.get(world_name), event_name)
 
 # TODO: dump these in a function to recreate the connection when it eventually craps out
 ws = create_connection(
     "wss://push.planetside2.com/streaming?environment=ps2&service-id=s:example"
 )
-ws.send(payload_tpl)
+ws.send(payload)
 
 
 # Run until it can't run no more
@@ -51,13 +52,19 @@ def main():
 			dict = json.loads(result)
 			# 99% of events are heartbeats regardless of the payload, and that ain't certs
 			if (dict.get("payload") is not None):
-				result_payload = dict.get("payload")
-				try:
-					alert = MetagameEvent(**result_payload)
-					# TODO: hook into Justin's discord bot
-					print(alert.toString())
-				except Exception as e:
-					print(e)
+				model = MetagameEvent
+				dict = dict.get("payload")
+				dict["metagame_event_dict"] = metagame_event_dict
+			elif (dict.get("detail") is not None):
+				model = EventServerEndpointStatus
+			else:
+				continue
+			# Send alert if data model is in accepted set
+			try:
+				alert = model(**dict)
+				print(alert.toString())
+			except Exception as e:
+				print(e)
 			sleep(5)
 	except Exception as e:
 		# change this to reconnect with exponential backoff retry logic later
