@@ -2,25 +2,20 @@ import asyncio
 import websockets
 import json
 import requests
+import os
 from time import sleep
 from datetime import datetime
 from model.MetagameEvent import MetagameEvent
 from model.EventServerEndpointStatus import EventServerEndpointStatus
+from dotenv import load_dotenv
 
-# TODO: create various subsciptions for events like Sean dying in game and shaming him when he spends certs
-world_name = "Emerald"
-event_name = "MetagameEvent"
-ps2_env = "ps2"
-service_id = "example"
-payload_tpl = """
-{{
-	"service":"event",
-	"action":"subscribe",
-	"worlds":["{}"],
-	"eventNames":["{}"]
-}}
-"""
-ws_url_tpl = "wss://push.planetside2.com/streaming?environment={}&service-id=s:{}"
+# load env
+load_dotenv()
+discord_webhook = os.getenv("DISCORD_WEBHOOK")
+world_name = os.getenv("WORLD_NAME")
+event_name = os.getenv("EVENT_NAME")
+ps2_env = os.getenv("PS2_ENV")
+service_id = os.getenv("SERVICE_ID")
 
 # Init static data models
 zone_list = json.loads(requests.get("http://census.daybreakgames.com/json/get/ps2:v2/zone/?c:limit=100").text).get("zone_list")
@@ -39,8 +34,21 @@ for metagame_event in metagame_event_list:
 	metagame_event_dict[metagame_event.get("metagame_event_id")] = metagame_event.get("name").get("en")
 
 # Format connection specific stuffs
+payload_tpl = """
+{{
+	"service":"event",
+	"action":"subscribe",
+	"worlds":["{}"],
+	"eventNames":["{}"]
+}}
+"""
+ws_url_tpl = "wss://push.planetside2.com/streaming?environment={}&service-id=s:{}"
 payload = payload_tpl.format(world_dict.get(world_name), event_name)
 ws_url = ws_url_tpl.format(ps2_env, service_id)
+
+# Send discord notification with webhook
+def send_discord_alert(alert):
+	return requests.post(url = discord_webhook, data = {'content': alert})
 
 # Create discord notification if message type is valid
 def process_message(message):
@@ -56,7 +64,7 @@ def process_message(message):
 	try:
 		alert = model(**dict)
 		# TODO: use discord bot
-		print(alert.toString())
+		send_discord_alert(alert.toString())
 	except Exception as e:
 		print(e)
 
@@ -65,6 +73,7 @@ async def consume(ws_url, payload):
 		await ws.send(payload)
 		async for message in ws:
 			process_message(message)
+			sleep(1)
 
 if __name__ == '__main__':
 	loop = asyncio.get_event_loop()

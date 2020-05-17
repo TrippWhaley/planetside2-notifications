@@ -21,6 +21,6 @@ class MetagameEvent:
 	Terran Republic: {}
 	New Conglomerate: {}
 	Vanu Scum: {}
-        {}
+    {}
 	{} at {}
       			""".format(self.faction_tr, self.faction_nc, self.faction_vs, self.metagame_event_dict[self.metagame_event_id], self.metagame_event_state_name, datetime.fromtimestamp(int(self.timestamp)).strftime("%H:%M:%S"))
