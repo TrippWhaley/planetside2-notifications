@@ -1,13 +1,13 @@
 import asyncio
 import websockets
 import json
-import requests
 import os
-from time import sleep
-from datetime import datetime
-from model.MetagameEvent import MetagameEvent
-from model.EventServerEndpointStatus import EventServerEndpointStatus
+import requests
 from dotenv import load_dotenv
+
+import model.alert as alerts
+from model.census import World
+from model.alert.base import Alert
 
 # load env
 load_dotenv()
@@ -18,20 +18,8 @@ ps2_env = os.getenv("PS2_ENV")
 service_id = os.getenv("SERVICE_ID")
 
 # Init static data models
-zone_list = json.loads(requests.get("http://census.daybreakgames.com/json/get/ps2:v2/zone/?c:limit=100").text).get("zone_list")
-zone_dict = {}
-for zone in zone_list:
-	zone_dict[zone.get("zone_id")] = zone.get("code")
-
-world_list = json.loads(requests.get("http://census.daybreakgames.com/json/get/ps2:v2/world/?c:limit=100").text).get("world_list")
-world_dict = {}
-for world in world_list:
-	world_dict[world.get("name").get("en")] = world.get("world_id")
-
-metagame_event_list = json.loads(requests.get("http://census.daybreakgames.com/json/get/ps2:v2/metagame_event/?c:limit=1000").text).get("metagame_event_list")
-metagame_event_dict = {}
-for metagame_event in metagame_event_list:
-	metagame_event_dict[metagame_event.get("metagame_event_id")] = metagame_event.get("name").get("en")
+world_dict = World()
+alert_models = dict([(name, cls) for name, cls in alerts.__dict__.items() if isinstance(cls, type)])
 
 # Format connection specific stuffs
 payload_tpl = """
@@ -47,24 +35,18 @@ payload = payload_tpl.format(world_dict.get(world_name), event_name)
 ws_url = ws_url_tpl.format(ps2_env, service_id)
 
 # Send discord notification with webhook
-def send_discord_alert(alert):
+def send_discord_alert(alert: Alert):
+	print(alert.to_string())
 	return requests.post(url = discord_webhook, data = {'content': alert})
 
 # Create discord notification if message type is valid
 def process_message(message):
-	dict = json.loads(message)
-	if (dict.get("payload") is not None):
-		model = MetagameEvent
-		dict = dict.get("payload")
-		dict["metagame_event_dict"] = metagame_event_dict
-	elif (dict.get("detail") is not None):
-		model = EventServerEndpointStatus
-	else:
-		return
 	try:
-		alert = model(**dict)
-		# TODO: use discord bot
-		send_discord_alert(alert.toString())
+		data = json.loads(message)
+		for alert_model in alert_models:
+			alert: Alert = getattr(alerts, alert_model).from_dict(data)
+			if alert is not None:
+				send_discord_alert(alert)
 	except Exception as e:
 		print(e)
 
@@ -73,7 +55,7 @@ async def consume(ws_url, payload):
 		await ws.send(payload)
 		async for message in ws:
 			process_message(message)
-			sleep(1)
+			# sleep(1)
 
 if __name__ == '__main__':
 	loop = asyncio.get_event_loop()
