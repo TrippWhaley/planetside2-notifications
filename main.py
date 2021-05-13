@@ -37,7 +37,7 @@ ws_url = ws_url_tpl.format(ps2_env, service_id)
 # Send discord notification with webhook
 def send_discord_alert(alert: Alert):
 	print(alert.to_string())
-	return requests.post(url = discord_webhook, data = {'content': alert})
+	return requests.post(url = discord_webhook, data = {'content': alert.to_string()})
 
 # Create discord notification if message type is valid
 def process_message(message):
