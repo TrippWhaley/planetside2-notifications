@@ -1,5 +1,5 @@
-# PlanetSideNotifications
-Notification system for alerts from PlanetSide 2 Census API
+# PlanetSide 2 Notifications
+Discord notifications for alerts from PlanetSide 2 Census API
 
 ## Setup
 
@@ -23,9 +23,10 @@ Notification system for alerts from PlanetSide 2 Census API
     ./run.sh
     ```
 
-## Linting
+## Formatting/Linting
 
-Coming soon
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 
 ## Testing
 
