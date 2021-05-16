@@ -1,4 +1,5 @@
 from typing import Any, Dict, Optional
+
 from .base import Alert
 
 
@@ -11,7 +12,7 @@ class EventServerEndpointStatus(Alert):
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> Optional["EventServerEndpointStatus"]:
-        if data.get("detail") is not None:
+        if data.get("detail") is not None and data.get("online") != "true":
             return EventServerEndpointStatus(**data)
         return None
 
@@ -19,5 +20,7 @@ class EventServerEndpointStatus(Alert):
         s = self.detail
         return s[s.find("_") + 1 : s.rfind("_")]
 
-    def to_string(self):
-        return f"Event Server Endpoint: {self.online} for {self._get_world()}"
+    def to_json_string(self):
+        return f"""
+                {{"content" : "Event Server Endpoint: {self.online} for {self._get_world()}"}}
+                """

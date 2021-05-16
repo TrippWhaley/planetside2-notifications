@@ -1,5 +1,4 @@
 import asyncio
-from datetime import datetime
 from dotenv import load_dotenv
 import json
 import os
@@ -54,7 +53,6 @@ async def consume(ws_url, payload):
 
 
 if __name__ == "__main__":
-    print(f"Resumed execution at UTC {datetime.utcnow().strftime('%H:%M:%S')}")
     loop = asyncio.get_event_loop()
     loop.run_until_complete(consume(ws_url, payload))
     loop.run_forever()
